@@ -1,0 +1,157 @@
+package com.Share.controller;
+
+import java.sql.Timestamp;
+
+import javax.servlet.http.HttpSession;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.Share.entity.Follow;
+import com.Share.entity.FollowId;
+import com.Share.entity.User;
+import com.Share.service.IFollowService;
+import com.Share.service.IUserService;
+import com.Share.util.Json;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+
+@Controller
+@Scope("prototype")
+@RequestMapping("/follow")
+public class FollowController {
+	
+	@Autowired
+	IFollowService<Follow> followService;
+	
+	@Autowired 
+	IUserService<User> userService;
+
+	/**
+	 * 关注用户
+	 * @param user 被关注的用户
+	 * @return
+	 */
+	@RequestMapping("/addFollow")
+	@ResponseBody
+	public Json addFollow(User user,HttpSession session){
+		Json result=new Json();
+		try {
+			Follow follow=new Follow();
+			User fans=(User)session.getAttribute("loginInfo");
+			follow.setId(new FollowId(user, fans));
+			follow.setCreateTime(new Timestamp(System.currentTimeMillis()));
+			followService.save(follow);
+			result.setStatus(true);
+			result.setMsg("关注用户成功！");
+		} catch (Exception e) {
+			e.printStackTrace();
+			result.setStatus(false);
+			result.setMsg("关注用户失败！");
+		}
+		return result;
+	}
+	
+	/**
+	 * 取消关注
+	 * @param user
+	 * @param session
+	 * @return
+	 */
+	@RequestMapping("/deleteFollow")
+	@ResponseBody
+	public Json deleteFollow(User user,HttpSession session){
+		Json json=new Json();
+		try {
+			User fans=(User)session.getAttribute("loginInfo");
+			FollowId followId=new FollowId(user, fans);
+			Follow follow=new Follow(followId);
+			followService.delete(follow);
+			json.setStatus(true);
+			json.setMsg("取消关注成功！");
+		} catch (Exception e) {
+			e.printStackTrace();
+			json.setStatus(false);
+			json.setMsg("取消关注失败！");
+		}
+		return json;
+	}
+	
+	/**
+	 * 获取粉丝列表
+	 * @param user
+	 * @param limit 最大显示行数/页号存在时，变成每页显示行数
+	 * @param page	页号	
+	 * @return
+	 */
+	@RequestMapping("/getFansList")
+	@ResponseBody
+	public Json getFansList(User user,Integer limit,Integer page){
+		Json result=new Json();
+		try {
+			JSONObject pagination= followService.getFansList(user,limit,page);
+			
+			user=userService.get(user.getId());
+			JSONObject jUser=new JSONObject();
+			jUser.put("username", user.getUsername());
+			jUser.put("id", user.getId());
+			jUser.put("imgPath", user.getImgPath());
+			jUser.put("gender", user.getGender());
+			jUser.put("fansList", pagination.get("fansList"));
+			if (page!=null) {
+				jUser.put("page", page);
+				jUser.put("rows", limit);
+				jUser.put("count", pagination.get("count"));
+			}
+			result.setData(jUser);
+			
+			result.setStatus(true);
+			result.setMsg("获取粉丝列表成功!");
+		} catch (Exception e) {
+			e.printStackTrace();
+			result.setStatus(false);
+			result.setMsg("获取粉丝列表失败！");
+			
+		}
+		return result;
+	}
+	
+	/**
+	 * 获取关注列表
+	 * @param user
+	 * @return
+	 */
+	@RequestMapping("/getFollowingList")
+	@ResponseBody
+	public Json getFollowingList(User user,Integer limit,Integer page){
+		Json result=new Json();
+		try {
+			JSONObject pagination = followService.getFollowingList(user,limit,page);
+			JSONObject jUser=new JSONObject();
+			user = userService.get(user.getId());
+			jUser.put("username", user.getUsername());
+			jUser.put("id", user.getId());
+			jUser.put("imgPath", user.getImgPath());
+			jUser.put("gender", user.getGender());
+			jUser.put("followingList", pagination.get("followingList"));
+			if(page!=null){
+				jUser.put("page", page);
+				jUser.put("rows", limit);
+				jUser.put("count", pagination.get("count"));
+			}
+			result.setData(jUser);
+			result.setStatus(true);
+			result.setMsg("获取关注列表成功!");
+		} catch (Exception e) {
+			e.printStackTrace();
+			result.setStatus(false);
+			result.setMsg("获取关注列表失败！");
+			
+		}
+		return result;
+	}
+
+}
